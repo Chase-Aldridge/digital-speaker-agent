@@ -8,9 +8,27 @@ Bootstrap doc for a fresh session working on this app. Read this top to bottom b
 - **Live:** https://digitalspeaker.chasealdridge.com (deployed on Coolify).
 - **Local code:** `~/github/digital-speaker-agent` (this repo). GitHub: `Chase-Aldridge/digital-speaker-agent` (public).
 - **Run:** `bun install && bun run dev` (API on :3001, web on :5173).
-- **Test/verify:** `bun run verify` (lint, typecheck, 30 tests, build).
+- **Test/verify:** `bun run verify` (lint, typecheck, 39 tests, build).
 - **Deploy:** push to `main`, then redeploy the Coolify app (see "Deploy").
 - **Deploy IDs + secrets** (Coolify app uuid, server, DNS, WhatsApp): in the private memory file `project-digital-speaker-agent-deploy.md`. They are NOT in this repo because the repo is public.
+
+## V1 build: Vince feedback (2026-06-20)
+
+This round implemented every point from Vince's V0 review voice note. What changed:
+
+1. **Active discovery engine** (`server/discover.ts`, `POST /api/opportunities/discover`). The agent finds matched events and podcasts for the speaker and stores them as personal leads. Uses Claude when `ANTHROPIC_API_KEY` is set, a deterministic generator otherwise.
+2. **Podcasts are first class.** New `type` (event or podcast) on opportunities, four seeded podcasts, podcasts included in discovery.
+3. **Search first UX.** The Opportunities page leads with a refine panel. Nothing shows until the speaker searches, discovers, or browses.
+4. **Pay model and location.** New `pay_model` field (paid-opportunity, free-to-speak, paid-to-speak, paid-to-pitch) plus filters for type, pay model, and location. Pay shows as a badge on every card.
+5. **Select then act.** The opportunity modal has "Track and draft application," which tracks the gig and generates the tailored pitch in one step.
+6. **Contact details.** New `contact` field surfaced as "How to reach them." For discovered leads the prompt forbids inventing private emails, so contacts are role based and flagged to verify.
+7. **"Signal strength" renamed to "Profile strength"** on the dashboard with clearer copy (Vince could not tell it was about the profile).
+8. **Guided onboarding and AI bio.** The 3-step pre-flight highlights the active step with coaching. The profile has "Write my bio" / "Rewrite with AI" (`POST /api/profile/generate-bio`), the cold-start fix.
+
+Operational notes:
+- **AI behavior:** without `ANTHROPIC_API_KEY` the discovery and bio features use the deterministic template fallback (clearly labeled as suggestions). Set the key in the deploy env to turn on live Claude generation. A future upgrade can swap discovery to Claude's web search tool for genuine live web research.
+- **Discovered items are leads to verify, not confirmed bookings.** The UI says so. Do not present them as facts.
+- **DB auto-migrates** in place on boot (`ensureColumns` in `server/db.ts`), so existing data and tracked submissions are preserved. Seeding is an idempotent upsert, never a destructive delete.
 
 ## Read first: guardrails
 

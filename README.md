@@ -8,15 +8,19 @@ This is a from-scratch rebuild of the product concept at digitalspeakeragent.com
 
 ## What it does
 
-1. **Find** — a searchable, filterable directory of speaking opportunities (CFPs, events, panels).
-2. **Apply** — generate a tailored application (pitch + session title + abstract) for any
-   opportunity, built from your reusable speaker profile. Uses Claude when an API key is
-   present, and a deterministic template generator otherwise (so it always works offline).
-3. **Track** — a kanban pipeline from *Saved* through *Accepted*, with status, notes, and
-   the saved application text on every card.
+1. **Discover.** The agent finds speaking and podcast opportunities matched to the speaker,
+   not just a passive list. Search first by topic, kind (event or podcast), format, pay model,
+   and location, then run Discover. Uses Claude when an API key is present, a deterministic
+   generator otherwise. Discovered items are leads to verify, with how-to-reach contact info.
+2. **Apply.** Generate a tailored application (pitch + session title + abstract) for any
+   opportunity, built from the reusable speaker profile, and draft it in one step from the board.
+3. **Track.** A kanban pipeline from *Saved* through *Accepted*, with status, notes, and the
+   saved application text on every card.
 
-Plus: email/password auth, a speaker-profile builder, a dashboard with stats and deadline
-tracking, and a pricing/billing page (billing mocked unless Stripe keys are set).
+Plus: email/password auth, a guided speaker-profile builder with an AI bio writer, a dashboard
+with stats and deadline tracking, and a pricing/billing page (billing mocked unless Stripe keys
+are set). Pay models cover events that pay you, free-to-speak slots, pay-to-speak, and paid
+podcast placements.
 
 ## Stack
 

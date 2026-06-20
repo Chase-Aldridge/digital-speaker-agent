@@ -1,4 +1,41 @@
-import type { SubmissionStatus } from "./types";
+import type { SubmissionStatus, PayModel } from "./types";
+
+type Tone = "neutral" | "ink" | "red" | "amber" | "blue" | "green";
+
+export const PAY_MODEL_META: Record<
+  PayModel,
+  { label: string; tone: Tone; short: string }
+> = {
+  "paid-opportunity": { label: "Gets you paid", tone: "green", short: "Paid" },
+  "free-to-speak": { label: "Free to speak", tone: "blue", short: "Free" },
+  "paid-to-speak": {
+    label: "Pay to speak",
+    tone: "amber",
+    short: "Pay to play",
+  },
+  "paid-to-pitch": {
+    label: "Paid placement",
+    tone: "amber",
+    short: "Paid placement",
+  },
+};
+
+export function payModelMeta(
+  pm: string,
+): { label: string; tone: Tone; short: string } | null {
+  return (
+    (
+      PAY_MODEL_META as Record<
+        string,
+        { label: string; tone: Tone; short: string }
+      >
+    )[pm] || null
+  );
+}
+
+export function typeLabel(type: string): string {
+  return type === "podcast" ? "Podcast" : "Event";
+}
 
 export const STATUS_ORDER: SubmissionStatus[] = [
   "saved",
@@ -25,9 +62,9 @@ export const STATUS_META: Record<
 };
 
 export function formatDate(iso: string | null | undefined): string {
-  if (!iso) return "—";
+  if (!iso) return "TBD";
   const d = new Date(iso);
-  if (isNaN(d.getTime())) return "—";
+  if (isNaN(d.getTime())) return "TBD";
   return d.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",

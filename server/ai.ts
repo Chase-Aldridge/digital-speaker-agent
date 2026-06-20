@@ -34,7 +34,10 @@ export async function generatePitch(
       const pitch = await generateWithClaude(key, profile, opp);
       return { pitch, source: "ai" };
     } catch (err) {
-      console.error("[ai] Claude generation failed, falling back to template:", err);
+      console.error(
+        "[ai] Claude generation failed, falling back to template:",
+        err,
+      );
     }
   }
   return { pitch: templatePitch(profile, opp), source: "template" };
@@ -47,7 +50,10 @@ async function generateWithClaude(
 ): Promise<string> {
   const client = new Anthropic({ apiKey });
   const history = profile.speakingHistory
-    .map((h) => `- ${h.event}${h.role ? ` (${h.role})` : ""}${h.year ? `, ${h.year}` : ""}`)
+    .map(
+      (h) =>
+        `- ${h.event}${h.role ? ` (${h.role})` : ""}${h.year ? `, ${h.year}` : ""}`,
+    )
     .join("\n");
 
   const prompt = `You are helping a professional speaker apply to a speaking opportunity. Write a concise, compelling application in the speaker's first-person voice.
@@ -89,12 +95,17 @@ Rules: warm and confident, never generic. No em dashes. Plain language. Do not i
     .trim();
 }
 
-function templatePitch(profile: SpeakerProfileInput, opp: OpportunityInput): string {
+function templatePitch(
+  profile: SpeakerProfileInput,
+  opp: OpportunityInput,
+): string {
   const overlap = profile.topics.filter((t) =>
     opp.topics.map((x) => x.toLowerCase()).includes(t.toLowerCase()),
   );
-  const focus = overlap[0] || opp.topics[0] || profile.topics[0] || "this topic";
-  const headline = profile.headline || "a speaker focused on real, practical takeaways";
+  const focus =
+    overlap[0] || opp.topics[0] || profile.topics[0] || "this topic";
+  const headline =
+    profile.headline || "a speaker focused on real, practical takeaways";
   const recent = profile.speakingHistory[0]?.event;
 
   return `WHY I'M A FIT
@@ -116,4 +127,95 @@ function sessionTitle(focus: string): string {
 
 function capitalize(s: string): string {
   return s.length ? s[0].toUpperCase() + s.slice(1) : s;
+}
+
+// ---- Bio writer -------------------------------------------------------------
+// Drafts or rewrites a speaker bio from the profile fields. This is the
+// cold-start fix: a new speaker rarely has a polished bio ready, so the app
+// writes a usable first draft. Uses Claude when a key is set, else a template.
+export type BioInput = {
+  name: string;
+  headline: string;
+  topics: string[];
+  speakingHistory: { event: string; year?: string; role?: string }[];
+  feeRange: string;
+  location: string;
+  currentBio: string;
+};
+
+export async function generateBio(
+  input: BioInput,
+): Promise<{ bio: string; source: "ai" | "template" }> {
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (key) {
+    try {
+      const bio = await generateBioWithClaude(key, input);
+      return { bio, source: "ai" };
+    } catch (err) {
+      console.error(
+        "[ai] Claude bio generation failed, falling back to template:",
+        err,
+      );
+    }
+  }
+  return { bio: templateBio(input), source: "template" };
+}
+
+async function generateBioWithClaude(
+  apiKey: string,
+  input: BioInput,
+): Promise<string> {
+  const client = new Anthropic({ apiKey });
+  const history = input.speakingHistory
+    .map(
+      (h) =>
+        `- ${h.event}${h.role ? ` (${h.role})` : ""}${h.year ? `, ${h.year}` : ""}`,
+    )
+    .join("\n");
+
+  const prompt = `Write a professional speaker bio in the third person for the person below. ${
+    input.currentBio
+      ? "Improve and tighten their existing draft while keeping any true detail."
+      : "Write it from scratch from the facts given."
+  }
+
+NAME: ${input.name}
+HEADLINE: ${input.headline || "n/a"}
+TOPICS: ${input.topics.join(", ") || "n/a"}
+LOCATION: ${input.location || "n/a"}
+SPEAKING HISTORY:
+${history || "n/a"}
+EXISTING DRAFT: ${input.currentBio || "none"}
+
+Rules: 3 to 5 sentences. Warm, credible, and concrete. Open with who they are and who they help. Plain language at a 5th grade reading level. No em dashes, use periods or commas. No emojis. Do not invent talks, companies, awards, or numbers that are not given. Output only the bio text, no preamble.`;
+
+  const resp = await client.messages.create({
+    model: MODEL,
+    max_tokens: 500,
+    messages: [{ role: "user", content: prompt }],
+  });
+
+  return resp.content
+    .filter((b): b is Anthropic.TextBlock => b.type === "text")
+    .map((b) => b.text)
+    .join("\n")
+    .trim();
+}
+
+function templateBio(input: BioInput): string {
+  const who =
+    input.headline ||
+    `a speaker on ${input.topics[0] || "topics that move audiences"}`;
+  const topicList =
+    input.topics.length > 1
+      ? `${input.topics.slice(0, -1).join(", ")} and ${input.topics[input.topics.length - 1]}`
+      : input.topics[0] || "real, practical ideas";
+  const recent = input.speakingHistory[0]?.event;
+  const place = input.location
+    ? ` Based in ${input.location}, ${input.name.split(" ")[0]}`
+    : ` ${input.name.split(" ")[0]}`;
+
+  return `${input.name} is ${who}. ${input.name.split(" ")[0]} helps audiences turn ${topicList} into clear steps they can use right away.${
+    recent ? ` Recent stages include ${recent}.` : ""
+  }${place} speaks with warmth and zero fluff, so every room leaves with something to act on.`;
 }

@@ -173,4 +173,49 @@ describe("API integration", () => {
     const list = await authed("/api/submissions");
     expect((await list.json()).submissions.length).toBe(0);
   });
+
+  test("seeded directory includes podcasts and pay models", async () => {
+    const res = await authed("/api/opportunities?type=podcast");
+    const data = await res.json();
+    expect(data.opportunities.length).toBeGreaterThan(0);
+    expect(data.opportunities.every((o: any) => o.type === "podcast")).toBe(
+      true,
+    );
+    expect(
+      data.opportunities.every((o: any) => typeof o.payModel === "string"),
+    ).toBe(true);
+  });
+
+  test("discover stores suggested leads scoped to the user", async () => {
+    const res = await post(
+      "/api/opportunities/discover",
+      { types: ["event", "podcast"], topics: ["AI"], count: 4 },
+      true,
+    );
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.source).toBe("template");
+    expect(data.count).toBe(4);
+    expect(data.opportunities.every((o: any) => o.discoveredBy)).toBe(true);
+
+    // The leads now show up in the board for this user.
+    const board = await authed("/api/opportunities");
+    const ids = new Set(
+      (await board.json()).opportunities.map((o: any) => o.id),
+    );
+    expect(ids.has(data.opportunities[0].id)).toBe(true);
+  });
+
+  test("generate-bio returns a template bio for the speaker", async () => {
+    const res = await post(
+      "/api/profile/generate-bio",
+      { headline: "Computing pioneer", topics: ["AI", "Computing"] },
+      true,
+    );
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.source).toBe("template");
+    expect(data.bio).toContain("Grace Hopper");
+    expect(data.bio.length).toBeGreaterThan(40);
+  });
 });

@@ -40,18 +40,22 @@ CREATE TABLE IF NOT EXISTS profiles (
 
 CREATE TABLE IF NOT EXISTS opportunities (
   id              TEXT PRIMARY KEY,
+  type            TEXT NOT NULL DEFAULT 'event',
   title           TEXT NOT NULL,
   organization    TEXT NOT NULL,
   location        TEXT NOT NULL DEFAULT '',
   format          TEXT NOT NULL DEFAULT 'in-person',
+  pay_model       TEXT NOT NULL DEFAULT '',
   topics          TEXT NOT NULL DEFAULT '[]',
   description     TEXT NOT NULL DEFAULT '',
   audience_size   TEXT NOT NULL DEFAULT '',
   fee_offered     TEXT NOT NULL DEFAULT '',
+  contact         TEXT NOT NULL DEFAULT '',
   application_url TEXT NOT NULL DEFAULT '',
   deadline        TEXT,
   event_date      TEXT,
   source          TEXT NOT NULL DEFAULT '',
+  discovered_by   TEXT,
   created_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -71,37 +75,86 @@ CREATE TABLE IF NOT EXISTS submissions (
 CREATE INDEX IF NOT EXISTS idx_submissions_user ON submissions(user_id);
 `);
 
+// ---- Migration --------------------------------------------------------------
+// Older databases created before podcasts/pay-model/discovery were added are
+// upgraded in place. Adding a column is non-destructive, so tracked submissions
+// and user data are preserved.
+function ensureColumns(
+  table: string,
+  columns: { name: string; ddl: string }[],
+) {
+  const existing = new Set(
+    (db.query(`PRAGMA table_info(${table})`).all() as { name: string }[]).map(
+      (r) => r.name,
+    ),
+  );
+  for (const col of columns) {
+    if (!existing.has(col.name)) {
+      db.exec(`ALTER TABLE ${table} ADD COLUMN ${col.ddl}`);
+    }
+  }
+}
+
+ensureColumns("opportunities", [
+  { name: "type", ddl: "type TEXT NOT NULL DEFAULT 'event'" },
+  { name: "pay_model", ddl: "pay_model TEXT NOT NULL DEFAULT ''" },
+  { name: "contact", ddl: "contact TEXT NOT NULL DEFAULT ''" },
+  { name: "discovered_by", ddl: "discovered_by TEXT" },
+]);
+
+// Created after the migration so the column exists on upgraded databases.
+db.exec(
+  "CREATE INDEX IF NOT EXISTS idx_opportunities_discovered ON opportunities(discovered_by);",
+);
+
 // ---- Seeding ----------------------------------------------------------------
-export function seedOpportunities(force = false) {
-  const count = (db.query("SELECT COUNT(*) AS n FROM opportunities").get() as { n: number }).n;
-  if (count > 0 && !force) return count;
-
-  if (force) db.exec("DELETE FROM opportunities");
-
+// Idempotent upsert: insert new sample opportunities and refresh existing ones
+// in place (ON CONFLICT updates, never deletes, so submissions are never
+// cascade-removed). Safe to run on every boot.
+export function seedOpportunities() {
   const insert = db.prepare(`
     INSERT INTO opportunities
-      (id, title, organization, location, format, topics, description,
-       audience_size, fee_offered, application_url, deadline, event_date, source)
+      (id, type, title, organization, location, format, pay_model, topics, description,
+       audience_size, fee_offered, contact, application_url, deadline, event_date, source)
     VALUES
-      ($id, $title, $organization, $location, $format, $topics, $description,
-       $audience_size, $fee_offered, $application_url, $deadline, $event_date, $source)
+      ($id, $type, $title, $organization, $location, $format, $pay_model, $topics, $description,
+       $audience_size, $fee_offered, $contact, $application_url, $deadline, $event_date, $source)
+    ON CONFLICT(id) DO UPDATE SET
+      type = excluded.type,
+      title = excluded.title,
+      organization = excluded.organization,
+      location = excluded.location,
+      format = excluded.format,
+      pay_model = excluded.pay_model,
+      topics = excluded.topics,
+      description = excluded.description,
+      audience_size = excluded.audience_size,
+      fee_offered = excluded.fee_offered,
+      contact = excluded.contact,
+      application_url = excluded.application_url,
+      deadline = excluded.deadline,
+      event_date = excluded.event_date,
+      source = excluded.source
   `);
 
   const tx = db.transaction((rows: typeof SAMPLE_OPPORTUNITIES) => {
     for (const o of rows) {
       insert.run({
         $id: o.id,
+        $type: o.type,
         $title: o.title,
         $organization: o.organization,
         $location: o.location,
         $format: o.format,
+        $pay_model: o.payModel,
         $topics: JSON.stringify(o.topics),
         $description: o.description,
-        $audience_size: o.audience_size,
-        $fee_offered: o.fee_offered,
-        $application_url: o.application_url,
+        $audience_size: o.audienceSize,
+        $fee_offered: o.feeOffered,
+        $contact: o.contact,
+        $application_url: o.applicationUrl,
         $deadline: o.deadline,
-        $event_date: o.event_date,
+        $event_date: o.eventDate,
         $source: o.source,
       });
     }
@@ -110,11 +163,11 @@ export function seedOpportunities(force = false) {
   return SAMPLE_OPPORTUNITIES.length;
 }
 
-// Auto-seed on import so the app is never empty in dev.
-seedOpportunities(false);
+// Auto-seed on import so the app is never empty and new sample rows land on boot.
+seedOpportunities();
 
 // Allow `bun run server/db.ts --seed` to force a reseed.
 if (import.meta.main && process.argv.includes("--seed")) {
-  const n = seedOpportunities(true);
+  const n = seedOpportunities();
   console.log(`Seeded ${n} opportunities into ${DB_PATH}`);
 }

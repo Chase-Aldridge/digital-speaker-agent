@@ -28,20 +28,32 @@ export type Profile = {
   updatedAt: string;
 };
 
+export type OppType = "event" | "podcast";
+
+export type PayModel =
+  | "paid-opportunity"
+  | "free-to-speak"
+  | "paid-to-speak"
+  | "paid-to-pitch";
+
 export type Opportunity = {
   id: string;
+  type: OppType | string;
   title: string;
   organization: string;
   location: string;
-  format: "in-person" | "virtual" | "hybrid" | string;
+  format: "in-person" | "virtual" | "hybrid" | "remote" | string;
+  payModel: PayModel | "";
   topics: string[];
   description: string;
   audienceSize: string;
   feeOffered: string;
+  contact: string;
   applicationUrl: string;
   deadline: string | null;
   eventDate: string | null;
   source: string;
+  discoveredBy: string | null;
   createdAt: string;
 };
 
