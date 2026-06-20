@@ -1,8 +1,16 @@
 import { useEffect, useState, type KeyboardEvent } from "react";
 import { api } from "../lib/api";
 import type { Profile, SpeakingEngagement } from "../lib/types";
-import { Button, Card, Field, Input, Textarea, VuMeter } from "../components/ui";
-import { Plus, X, Check } from "../components/icons";
+import {
+  Badge,
+  Button,
+  Card,
+  Field,
+  Input,
+  Textarea,
+  VuMeter,
+} from "../components/ui";
+import { Plus, X, Check, Sparkles } from "../components/icons";
 
 const EMPTY: Profile = {
   headline: "",
@@ -26,6 +34,8 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [topicDraft, setTopicDraft] = useState("");
+  const [bioBusy, setBioBusy] = useState(false);
+  const [bioSource, setBioSource] = useState<string | null>(null);
 
   useEffect(() => {
     api
@@ -52,7 +62,10 @@ export default function ProfilePage() {
   }
 
   function addEngagement() {
-    set("speakingHistory", [...p.speakingHistory, { event: "", year: "", role: "" }]);
+    set("speakingHistory", [
+      ...p.speakingHistory,
+      { event: "", year: "", role: "" },
+    ]);
   }
   function updateEngagement(i: number, patch: Partial<SpeakingEngagement>) {
     const next = p.speakingHistory.slice();
@@ -60,7 +73,10 @@ export default function ProfilePage() {
     set("speakingHistory", next);
   }
   function removeEngagement(i: number) {
-    set("speakingHistory", p.speakingHistory.filter((_, idx) => idx !== i));
+    set(
+      "speakingHistory",
+      p.speakingHistory.filter((_, idx) => idx !== i),
+    );
   }
 
   async function save() {
@@ -71,6 +87,28 @@ export default function ProfilePage() {
       setSaved(true);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function writeBio() {
+    setBioBusy(true);
+    try {
+      const d = await api.post<{ bio: string; source: string }>(
+        "/profile/generate-bio",
+        {
+          headline: p.headline,
+          topics: p.topics,
+          speakingHistory: p.speakingHistory,
+          feeRange: p.feeRange,
+          location: p.location,
+          bio: p.bio,
+        },
+      );
+      setP((prev) => ({ ...prev, bio: d.bio }));
+      setBioSource(d.source);
+      setSaved(false);
+    } finally {
+      setBioBusy(false);
     }
   }
 
@@ -87,9 +125,12 @@ export default function ProfilePage() {
       <div className="flex flex-wrap items-end justify-between gap-3 border-b-[1.5px] rule pb-5">
         <div>
           <span className="label text-signal-2">The source signal</span>
-          <h1 className="mt-2 font-display text-4xl font-semibold text-ink">Speaker profile</h1>
+          <h1 className="mt-2 font-display text-4xl font-semibold text-ink">
+            Speaker profile
+          </h1>
           <p className="mt-2 max-w-xl text-sm text-ink-2">
-            This powers every application written in your voice. The richer it is, the sharper they read.
+            This powers every application written in your voice. The richer it
+            is, the sharper they read.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -98,24 +139,69 @@ export default function ProfilePage() {
               <Check className="h-4 w-4" /> Saved
             </span>
           )}
-          <Button onClick={save} loading={saving}>Save profile</Button>
+          <Button onClick={save} loading={saving}>
+            Save profile
+          </Button>
         </div>
       </div>
 
       <Card className="space-y-5 p-6">
         <span className="label text-ink-3">Basics</span>
-        <Field label="Headline" hint="One line on who you are. e.g. “Keynote speaker on AI for sales teams.”">
-          <Input value={p.headline} onChange={(e) => set("headline", e.target.value)} />
+        <Field
+          label="Headline"
+          hint="One line on who you are. e.g. “Keynote speaker on AI for sales teams.”"
+        >
+          <Input
+            value={p.headline}
+            onChange={(e) => set("headline", e.target.value)}
+          />
         </Field>
-        <Field label="Bio">
-          <Textarea rows={4} value={p.bio} onChange={(e) => set("bio", e.target.value)} />
-        </Field>
+        <div className="space-y-1.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="label block text-ink-2">Bio</span>
+            <div className="flex items-center gap-2">
+              {bioSource && (
+                <Badge tone={bioSource === "ai" ? "amber" : "neutral"}>
+                  {bioSource === "ai" ? "AI draft" : "Draft"}
+                </Badge>
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                loading={bioBusy}
+                onClick={writeBio}
+              >
+                <Sparkles className="h-4 w-4" />{" "}
+                {p.bio ? "Rewrite with AI" : "Write my bio"}
+              </Button>
+            </div>
+          </div>
+          <Textarea
+            rows={5}
+            value={p.bio}
+            onChange={(e) => set("bio", e.target.value)}
+            placeholder="A few lines on who you are and who you help. Or let the agent draft it from your headline, topics, and history."
+          />
+          <span className="block text-xs text-ink-3">
+            Tip: fill your headline, topics, and speaking history first, then
+            have the agent write the bio. You can edit it after.
+          </span>
+        </div>
         <div className="grid gap-5 sm:grid-cols-2">
           <Field label="Location">
-            <Input value={p.location} onChange={(e) => set("location", e.target.value)} placeholder="Denver, CO" />
+            <Input
+              value={p.location}
+              onChange={(e) => set("location", e.target.value)}
+              placeholder="Denver, CO"
+            />
           </Field>
           <Field label="Speaking fee range">
-            <Input value={p.feeRange} onChange={(e) => set("feeRange", e.target.value)} placeholder="$5k–10k" />
+            <Input
+              value={p.feeRange}
+              onChange={(e) => set("feeRange", e.target.value)}
+              placeholder="$5k–10k"
+            />
           </Field>
         </div>
       </Card>
@@ -130,14 +216,21 @@ export default function ProfilePage() {
             >
               {t}
               <button
-                onClick={() => set("topics", p.topics.filter((x) => x !== t))}
+                onClick={() =>
+                  set(
+                    "topics",
+                    p.topics.filter((x) => x !== t),
+                  )
+                }
                 className="text-ink-3 hover:text-signal"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
             </span>
           ))}
-          {p.topics.length === 0 && <span className="text-sm text-ink-3">No topics yet.</span>}
+          {p.topics.length === 0 && (
+            <span className="text-sm text-ink-3">No topics yet.</span>
+          )}
         </div>
         <div className="flex gap-2">
           <Input
@@ -155,20 +248,47 @@ export default function ProfilePage() {
       <Card className="space-y-4 p-6">
         <div className="flex items-center justify-between">
           <span className="label text-ink-3">Speaking history</span>
-          <Button variant="ghost" size="sm" onClick={addEngagement} type="button">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={addEngagement}
+            type="button"
+          >
             <Plus className="h-4 w-4" /> Add
           </Button>
         </div>
         {p.speakingHistory.length === 0 && (
-          <p className="text-sm text-ink-3">Add past talks to make your applications more credible.</p>
+          <p className="text-sm text-ink-3">
+            Add past talks to make your applications more credible.
+          </p>
         )}
         <div className="space-y-3">
           {p.speakingHistory.map((h, i) => (
-            <div key={i} className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_110px_140px_auto]">
-              <Input value={h.event} onChange={(e) => updateEngagement(i, { event: e.target.value })} placeholder="Event name" />
-              <Input value={h.year || ""} onChange={(e) => updateEngagement(i, { year: e.target.value })} placeholder="Year" />
-              <Input value={h.role || ""} onChange={(e) => updateEngagement(i, { role: e.target.value })} placeholder="Role (keynote…)" />
-              <Button variant="danger" size="sm" onClick={() => removeEngagement(i)} type="button">
+            <div
+              key={i}
+              className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_110px_140px_auto]"
+            >
+              <Input
+                value={h.event}
+                onChange={(e) => updateEngagement(i, { event: e.target.value })}
+                placeholder="Event name"
+              />
+              <Input
+                value={h.year || ""}
+                onChange={(e) => updateEngagement(i, { year: e.target.value })}
+                placeholder="Year"
+              />
+              <Input
+                value={h.role || ""}
+                onChange={(e) => updateEngagement(i, { role: e.target.value })}
+                placeholder="Role (keynote…)"
+              />
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => removeEngagement(i)}
+                type="button"
+              >
                 <X className="h-4 w-4" />
               </Button>
             </div>
@@ -180,18 +300,31 @@ export default function ProfilePage() {
         <span className="label text-ink-3">Links & contact</span>
         <div className="grid gap-5 sm:grid-cols-2">
           <Field label="Website">
-            <Input value={p.website} onChange={(e) => set("website", e.target.value)} placeholder="https://" />
+            <Input
+              value={p.website}
+              onChange={(e) => set("website", e.target.value)}
+              placeholder="https://"
+            />
           </Field>
           <Field label="Demo / sizzle reel">
-            <Input value={p.videoUrl} onChange={(e) => set("videoUrl", e.target.value)} placeholder="https://youtube.com/…" />
+            <Input
+              value={p.videoUrl}
+              onChange={(e) => set("videoUrl", e.target.value)}
+              placeholder="https://youtube.com/…"
+            />
           </Field>
           <Field label="Phone">
-            <Input value={p.phone} onChange={(e) => set("phone", e.target.value)} />
+            <Input
+              value={p.phone}
+              onChange={(e) => set("phone", e.target.value)}
+            />
           </Field>
           <Field label="LinkedIn">
             <Input
               value={p.social.linkedin || ""}
-              onChange={(e) => set("social", { ...p.social, linkedin: e.target.value })}
+              onChange={(e) =>
+                set("social", { ...p.social, linkedin: e.target.value })
+              }
               placeholder="https://linkedin.com/in/…"
             />
           </Field>
@@ -199,7 +332,9 @@ export default function ProfilePage() {
       </Card>
 
       <div className="flex justify-end">
-        <Button onClick={save} loading={saving} size="lg">Save profile</Button>
+        <Button onClick={save} loading={saving} size="lg">
+          Save profile
+        </Button>
       </div>
     </div>
   );

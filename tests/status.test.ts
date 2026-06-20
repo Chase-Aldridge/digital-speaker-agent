@@ -1,13 +1,18 @@
 import { test, expect, describe } from "bun:test";
-import { formatDate, daysUntil, STATUS_ORDER, STATUS_META } from "../src/lib/status.ts";
+import {
+  formatDate,
+  daysUntil,
+  STATUS_ORDER,
+  STATUS_META,
+} from "../src/lib/status.ts";
 
 describe("formatDate", () => {
   test("formats an ISO date", () => {
     expect(formatDate("2026-08-01")).toContain("2026");
   });
-  test("returns dash for null/invalid", () => {
-    expect(formatDate(null)).toBe("—");
-    expect(formatDate("not-a-date")).toBe("—");
+  test("returns TBD for null/invalid", () => {
+    expect(formatDate(null)).toBe("TBD");
+    expect(formatDate("not-a-date")).toBe("TBD");
   });
 });
 

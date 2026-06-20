@@ -1,12 +1,20 @@
 import { test, expect, describe, beforeAll } from "bun:test";
-import { generatePitch, type SpeakerProfileInput, type OpportunityInput } from "../server/ai.ts";
+import {
+  generatePitch,
+  generateBio,
+  type SpeakerProfileInput,
+  type OpportunityInput,
+  type BioInput,
+} from "../server/ai.ts";
 
 const profile: SpeakerProfileInput = {
   name: "Ada Lovelace",
   headline: "keynote speaker on computing",
   bio: "Pioneer of programming.",
   topics: ["AI", "Computing"],
-  speakingHistory: [{ event: "Analytical Engine Expo", year: "1843", role: "Keynote" }],
+  speakingHistory: [
+    { event: "Analytical Engine Expo", year: "1843", role: "Keynote" },
+  ],
   feeRange: "$5k",
   location: "London",
 };
@@ -43,5 +51,33 @@ describe("generatePitch (template fallback)", () => {
     expect(pitch).toContain("WHY I'M A FIT");
     expect(pitch).toContain("PROPOSED SESSION");
     expect(pitch).toContain("THE TAKEAWAY");
+  });
+});
+
+describe("generateBio (template fallback)", () => {
+  const bioInput: BioInput = {
+    name: "Ada Lovelace",
+    headline: "keynote speaker on computing",
+    topics: ["AI", "Computing"],
+    speakingHistory: [{ event: "Analytical Engine Expo", year: "1843" }],
+    feeRange: "$5k",
+    location: "London",
+    currentBio: "",
+  };
+
+  beforeAll(() => {
+    delete process.env.ANTHROPIC_API_KEY;
+  });
+
+  test("writes a template bio that names the speaker", async () => {
+    const { bio, source } = await generateBio(bioInput);
+    expect(source).toBe("template");
+    expect(bio).toContain("Ada Lovelace");
+    expect(bio.length).toBeGreaterThan(40);
+  });
+
+  test("contains no em dashes", async () => {
+    const { bio } = await generateBio(bioInput);
+    expect(bio.includes("—")).toBe(false);
   });
 });
