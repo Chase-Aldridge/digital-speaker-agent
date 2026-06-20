@@ -1,0 +1,37 @@
+{
+  "name": "digital-speaker-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Digital Speaker Agent MVP - find speaking gigs, auto-generate applications, track submissions.",
+  "scripts": {
+    "dev": "bun run dev.ts",
+    "server": "bun --watch server/index.ts",
+    "client": "vite",
+    "build": "vite build",
+    "start": "NODE_ENV=production bun server/index.ts",
+    "seed": "bun run server/db.ts --seed",
+    "typecheck": "tsc --noEmit",
+    "lint": "bunx oxlint@latest src server tests dev.ts vite.config.ts",
+    "test": "bun test",
+    "verify": "bun run lint && bun run typecheck && bun run test && bun run build"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.1",
+    "hono": "^4.6.14",
+    "jose": "^5.9.6",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.0.0",
+    "@types/bun": "^1.1.14",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.3"
+  }
+}
